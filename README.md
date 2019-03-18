@@ -1,2 +1,4 @@
-# gmjs_ocs_jmri
-Server software between GMJS_OCS and JMRI
+# ipocs.jmri
+Translation server between GMJS OCS and JMRI via MQTT.
+
+OCS <--> jmri.mqtt <--> MQTT broker <--> JMRI
