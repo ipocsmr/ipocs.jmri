@@ -1,12 +1,12 @@
-using System;
-using System.Text;
-using System.Collections.Generic;
-using System.Xml;
-using System.Threading;
-using System.Threading.Tasks;
+using IPOCS;
 using MQTTnet;
 using MQTTnet.Client;
-using IPOCS;
+using System;
+using System.Collections.Concurrent;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
 
 namespace ipocs.jmri
 {
@@ -15,9 +15,12 @@ namespace ipocs.jmri
         IMqttClient broker;
         IMqttClientOptions options;
 
-        Dictionary<string, Tuple<int, string>> url_to_obj;
-        Dictionary<Tuple<int, string>, string> obj_to_url;
-        Dictionary<int, Client> unitid_to_client;
+        ConcurrentDictionary<string, Tuple<int, string>> url_to_obj =
+            new ConcurrentDictionary<string, Tuple<int, string>>();
+        ConcurrentDictionary<Tuple<int, string>, string> obj_to_url =
+            new ConcurrentDictionary<Tuple<int, string>, string>();
+        ConcurrentDictionary<int, IPOCS.Client> unitid_to_client =
+            new ConcurrentDictionary<int, IPOCS.Client>();
 
         Program() {
             var factory = new MqttFactory();
@@ -29,8 +32,8 @@ namespace ipocs.jmri
         }
 
         void LoadConfigData(String filename) {
-            obj_to_url = new Dictionary<Tuple<int, string>, string>();
-            url_to_obj = new Dictionary<string, Tuple<int, string>>();
+            obj_to_url.Clear();
+            url_to_obj.Clear();
             var doc = new XmlDocument();
             doc.Load(filename);
             foreach (XmlNode concentrator in doc.DocumentElement.ChildNodes) {
@@ -48,16 +51,18 @@ namespace ipocs.jmri
                             String url = null;
                             String obj = null;
                             foreach (XmlNode node3 in node2.ChildNodes) {
-                                if (node3.Name == "outputPin") {
-                                    if (obj != null) Fail("multiple outputPin");
+                                if (node3.Name == "Name") {
+                                    if (obj != null) Fail("multiple Name");
                                     obj = node3.InnerText;
-                                } else if (node3.Name == "mqttUrl") {
-                                    if (url != null) Fail("multiple mqtttUrl");
-                                    url = node3.InnerText;
+                                } else if (node3.Name == "SystemName") {
+                                    if (url != null) Fail("multiple SystemName");
+                                    if (!node3.InnerText.StartsWith("MT"))
+                                        Fail("Expect SystemName to start with MT");
+                                    url = "/trains/track/turnout/" + node3.InnerText.Substring(2);
                                 }
                             }
-                            if (obj == null) Fail("no OutputPin");
-                            if (url == null) Fail("no mqttUrl");
+                            if (obj == null) Fail("no Name");
+                            if (url == null) Fail("no SystemName");
                             int id = Int32.Parse(unitid);
                             var tup  = new Tuple<int, string>(id, obj);
                             if (url_to_obj.ContainsKey(url)) Fail("dup url " + url);
@@ -72,41 +77,45 @@ namespace ipocs.jmri
 
         void Fail(String msg) {
             Console.WriteLine(msg);
-            Console.WriteLine(System.Environment.StackTrace);
+            //Console.WriteLine(System.Environment.StackTrace);
             System.Environment.Exit(1);
         }
 
         void Subscribe() {
+            //todo: callback for each topic
             broker.Connected += async (s, e) => {
-                await broker.SubscribeAsync(new TopicFilterBuilder().WithTopic("#").Build());
+                await broker.SubscribeAsync(
+                    new TopicFilterBuilder().WithTopic("#").Build());
             };
             broker.ConnectAsync(options);
             broker.ApplicationMessageReceived += (sender, e) => {
                 var topic = e.ApplicationMessage.Topic;
                 var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
-                Console.WriteLine("" + topic + ": " + payload);
-                string order = "unknonw";
-                if (payload ==  "THROWN") {
-                    order = "throw";
-                } else if (payload ==  "CLOSED") {
-                    order =  "close";
+                if (payload !=  "THROWN" && payload !=  "CLOSED") {
+                    Console.WriteLine("SKIPPING: " + topic + ": " + payload);
+                    return;
                 }
+                Console.WriteLine("SENDING: " + topic + ": " + payload);
                 if (url_to_obj.ContainsKey(topic)) {
                     var obj = url_to_obj[topic];
                     string unitid = obj.Item1.ToString();
-                    string output = obj.Item2.ToString();
-                    Console.WriteLine("sending " + unitid + ":" + output + " order " + order);
-                    /*
-                    var responseMsg = new IPOCS.Protocol.Message();
-                    responseMsg.RXID_OBJECT = unitid;
-                    responseMsg.packets.Add(new IPOCS.Protocol.Packets.ConnectionResponse
-                    {
-                        RM_PROTOCOL_VERSION = pkt.RM_PROTOCOL_VERSION
-                    });
-                    Client.Instance.Send(responseMsg);
-                    */
-                } else {
-                    Console.WriteLine("out of control " + topic);
+                    string output = obj.Item2;
+                    if (!unitid_to_client.ContainsKey(obj.Item1)) {
+                        Console.WriteLine("Not conenctd to " + obj.Item1);
+                        return;
+                    }
+                    var cl = unitid_to_client[obj.Item1];
+                    var msg = new IPOCS.Protocol.Message();
+                    msg.RXID_OBJECT = obj.Item2;
+                    var pkg = new IPOCS.Protocol.Packets.Orders.ThrowPoints();
+                    if (payload ==  "THROWN") { // todo: verify left/right
+                        pkg.RQ_POINTS_COMMAND = IPOCS.Protocol.Packets.Orders.RQ_POINTS_COMMAND.DIVERT_LEFT;
+                    } else {
+                        pkg.RQ_POINTS_COMMAND = IPOCS.Protocol.Packets.Orders.RQ_POINTS_COMMAND.DIVERT_RIGHT;
+                    }
+                    Console.WriteLine("sending " + unitid + ":" + output + " order");
+                    msg.packets.Add(pkg);
+                    cl.Send(msg);
                 }
             };
         }
@@ -114,41 +123,40 @@ namespace ipocs.jmri
         void StartListening() {
             Networker.Instance.OnConnect += (c) => {
                 Console.WriteLine(c.UnitID + " connected");
+                if (unitid_to_client.ContainsKey(c.UnitID))
+                    unitid_to_client[c.UnitID]?.Disconnect();
                 unitid_to_client[c.UnitID] = c;
-            };
-            Networker.Instance.OnConnectionRequest += (c, r) => {
-                Console.WriteLine(c.UnitID + " request");
-                string order = "UNKNOWN";
-                /*
-                if (r.RL_PACKET == ???) {
-                    order = "THROWN";
-                } else if (r.RL_PACKET == ???) {
-                    order =  "CLOSED";
-                }
-                */
-                Console.WriteLine("RL: " + r.RL_PACKET.ToString());
-                /*
-                var ob = r.RL_PACKET ???
-                var tup  = new Tuple<int, string>(c.UnitID, ob);
-                var topic = obj_to_url[tup];
-                */
-                var topic = obj_to_url[new Tuple<int, string>(1, "10")];
 
-                broker.Connected += async (s, e) => {
-                    var message = new MqttApplicationMessageBuilder()
-                        .WithTopic(topic)
-                        .WithPayload(order)
-                        .Build();
-                    await broker.PublishAsync(message);
+                c.OnMessage += (m) => {
+                    //todo
+                    /*
+                    var topic = obj_to_url[new Tuple<int, string>(
+                        c.UnitID, "AaCV66")]; //FIXME
+                    var order = "CLOSED"; //FIXME
+
+                    broker.Connected += async (s, e) => {
+                        var message = new MqttApplicationMessageBuilder()
+                            .WithTopic(topic)
+                            .WithPayload(order)
+                            .Build();
+                        await broker.PublishAsync(message);
+                    };
+                    */
                 };
+            };
+
+            Networker.Instance.OnConnectionRequest += (c, r) => {
                 return true;
             };
+
+
             Networker.Instance.OnDisconnect += (c) => {
                 Console.WriteLine(c.UnitID + " disconnected");
-                unitid_to_client.Remove(c.UnitID);
+                if (c == unitid_to_client[c.UnitID])
+                    unitid_to_client[c.UnitID] = null;
             };
             Networker.Instance.OnListening += (isListening) => {
-                Console.WriteLine("on listening " + isListening + "\n");
+                Console.WriteLine(isListening ? "listening" : "not listening");
             };
             Networker.Instance.isListening = true;
         }
