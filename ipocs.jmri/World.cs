@@ -14,6 +14,7 @@ namespace ipocs.jmri
         ConcurrentDictionary<string, Ocs> unitidToOcs = new ConcurrentDictionary<string, Ocs>();
 
         ConcurrentDictionary<string, Sop> urlToObj = new ConcurrentDictionary<string, Sop>();
+        ConcurrentDictionary<string, Sop> nameToObj = new ConcurrentDictionary<string, Sop>();
 
         Dictionary<string, Sop.Straight> sops = new Dictionary<string, Sop.Straight>() {
             { "Aa60", Sop.Straight.Unknown},
@@ -134,13 +135,12 @@ namespace ipocs.jmri
                             }
                             if (obj == null) throw new Exception("no Name");
                             if (url == null) throw new Exception("no SystemName");
-                            //int id = Int32.Parse(unitid);
                             var sop  = new Sop(ocs, obj, url, sys, sops[obj]);
                             ocs.Add(sop);
                             if (urlToObj.ContainsKey(url)) throw new Exception("dup url " + url);
-                            //if (objToUrl.ContainsKey(obj)) throw new Exception("dup obj " + sop);
+                            if (nameToObj.ContainsKey(obj)) throw new Exception("dup obj " + sop);
                             urlToObj[url] = sop;
-                            //objToUrl[obj] = url;
+                            nameToObj[obj] = sop;
                         }
                     }
                 }
@@ -150,11 +150,19 @@ namespace ipocs.jmri
         public Ocs GetOcs(string unitid) {
             return unitidToOcs[unitid];
         }
-        public Sop GetSop(string url) {
+        public Sop GetSopFromUrl(string url) {
             return urlToObj[url];
         }
-        public bool IsSop(string url) {
+        public Sop GetSopFromName(string name) {
+            return nameToObj[name];
+        }
+
+        public bool IsSopFromUrl(string url) {
             return urlToObj.ContainsKey(url);
+        }
+
+        public bool IsSopFromName(string name) {
+            return nameToObj.ContainsKey(name);
         }
 
     }

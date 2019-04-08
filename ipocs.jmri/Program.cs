@@ -42,17 +42,17 @@ namespace ipocs.jmri
                 var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
 
                 Console.WriteLine("MQTT: Received " + payload + " on " + topic);
-                /*
+                
                 if (payload != "THROWN" && payload != "CLOSED") {
                     Console.WriteLine("MQTT: Skip unexpected message " + payload);
                     return;
                 }
-                */
-                if (!world.IsSop(topic)) {
+                
+                if (!world.IsSopFromUrl(topic)) {
                     Console.WriteLine("MQTT: Skip unknown SoP " + topic);
                     return;
                 }
-                Sop sop = world.GetSop(topic);
+                Sop sop = world.GetSopFromUrl(topic);
                 if (!unitidToClient.ContainsKey(sop.ocs.unitid)) {
                     Console.WriteLine("MQTT: Skip unconnected OCS("+ sop.ocs.unitid + ")");
                     return;
@@ -73,8 +73,25 @@ namespace ipocs.jmri
                     sop.SetUnknown();
                 }
 
-                pkg.RQ_POINTS_COMMAND = sop.straight == Sop.Straight.Left ?
-                    RQ_POINTS_COMMAND.DIVERT_LEFT : RQ_POINTS_COMMAND.DIVERT_RIGHT;
+                // todo remove when set unknown
+                pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
+
+                if (sop.GetState() == Sop.State.Thrown) {
+                    pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_RIGHT;
+                }
+                else if (sop.GetState() == Sop.State.Closed) {
+                    pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
+                } else {
+                    // TODO set unknown?!?!?!
+                    //pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.
+                }
+
+                if (sop.straight == Sop.Straight.Left) {
+                    if (pkg.RQ_POINTS_COMMAND == RQ_POINTS_COMMAND.DIVERT_LEFT)
+                        pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_RIGHT;
+                    else if (pkg.RQ_POINTS_COMMAND == RQ_POINTS_COMMAND.DIVERT_RIGHT)
+                        pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
+                }
 
                 if (sop.IsChanged()) {
                     sop.ClearChange();
@@ -94,13 +111,13 @@ namespace ipocs.jmri
                 unitidToClient["" + c.UnitID] = c;
 
                 c.OnMessage += async (m) => {
-                    Console.WriteLine("onMessage: " + c.UnitID);
-                    if (!world.IsSop(m.RXID_OBJECT)) { 
+                    Console.WriteLine("onMessage: from OCS(" + c.UnitID + ")");
+                    if (!world.IsSopFromName(m.RXID_OBJECT)) { 
                         Console.WriteLine("onMessage: Unknown object " + m.RXID_OBJECT);
                         return;
                     }
                     Console.WriteLine("onMessage: Known object " + m.RXID_OBJECT);
-                    Sop sop = world.GetSop(m.RXID_OBJECT);
+                    Sop sop = world.GetSopFromName(m.RXID_OBJECT);
                     foreach (var pkg in m.packets) {
                         if (!(pkg is IPOCS.Protocol.Packets.Status.Points)) {
                             Console.WriteLine("onMessage: Unexpected package type");
@@ -120,7 +137,7 @@ namespace ipocs.jmri
                             order = "UNKNOWN";
                         Console.WriteLine("onMessage: " + m.RXID_OBJECT + " interpreted " + sPkg.RQ_POINTS_STATE + " as " + order + " on " + sop.url);
                         if (!sop.IsChanged()) {
-                            Console.WriteLine("onMessage: nothing to do");
+                            Console.WriteLine("onMessage: no action");
                             return;
                         }
                         var message = new MqttApplicationMessageBuilder()
@@ -129,6 +146,8 @@ namespace ipocs.jmri
                             .Build();
                         sop.ClearChange();
                         await broker.PublishAsync(message);
+                        Console.WriteLine("onMessage: published");
+
                     }
                 };
             };

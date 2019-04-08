@@ -12,14 +12,18 @@ namespace ipocs.jmri
         public Ocs ocs { get; }
 
         public string url { get; }
-        State state {
-            get => state;
-            set {
-                if (state != value)
-                    changed = true;
-                state = value;
-            }
+        private State state { get; set; } 
+
+        private void SetState(State value) {
+            if (state != value)
+                changed = true;
+            state = value;
          }
+
+        public State GetState() {
+            return state;
+         }
+
         public Straight straight { get; }
 
         bool changed;
@@ -33,21 +37,21 @@ namespace ipocs.jmri
         }
 
         public void SetClosed() {
-            state = State.Closed;
+            SetState(State.Closed);
         }
 
         public void SetThrown() {
-            state = State.Thrown;
+            SetState(State.Thrown);
         }
 
         public void SetUnknown() {
-            state = State.Unknown;
+            SetState(State.Unknown);
         }
         public void SetLeft() {
-            state = straight == Straight.Left ? State.Closed : State.Thrown;
+            SetState(straight == Straight.Left ? State.Closed : State.Thrown);
         }
         public void SetRight() {
-            state = straight == Straight.Right ? State.Closed : State.Thrown;
+            SetState(straight == Straight.Right ? State.Closed : State.Thrown);
         }
 
         public bool IsChanged() {
