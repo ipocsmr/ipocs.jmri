@@ -16,74 +16,10 @@ namespace ipocs.jmri
         ConcurrentDictionary<string, Sop> urlToObj = new ConcurrentDictionary<string, Sop>();
         ConcurrentDictionary<string, Sop> nameToObj = new ConcurrentDictionary<string, Sop>();
 
+        // fixme: remove this temporary workaround
         Dictionary<string, Sop.Straight> sops = new Dictionary<string, Sop.Straight>() {
-            { "Aa60", Sop.Straight.Unknown},
-            { "Aa61", Sop.Straight.Unknown},
-            { "Aa62", Sop.Straight.Unknown},
-            { "Aa63", Sop.Straight.Unknown},
-            { "Aa64", Sop.Straight.Unknown},
-            { "Aa65", Sop.Straight.Unknown},
-            { "Aa66", Sop.Straight.Unknown},
-            { "Aa68", Sop.Straight.Unknown},
-            { "Aa69", Sop.Straight.Unknown},
-            { "Aa70", Sop.Straight.Unknown},
-            { "Aa71", Sop.Straight.Unknown},
-            { "Ba100", Sop.Straight.Unknown},
-            { "Ba101", Sop.Straight.Unknown},
-            { "Ba102", Sop.Straight.Unknown},
-            { "Ba103", Sop.Straight.Unknown},
-            { "Ba104", Sop.Straight.Unknown},
-            { "Ba105", Sop.Straight.Unknown},
-            { "Ba106", Sop.Straight.Unknown},
-            { "Ba107", Sop.Straight.Unknown},
-            { "Ba108", Sop.Straight.Unknown},
-            { "Ba110", Sop.Straight.Unknown},
-            { "Ba111", Sop.Straight.Unknown},
-            { "Ba113", Sop.Straight.Unknown},
-            { "Ba114", Sop.Straight.Unknown},
             { "Ba115", Sop.Straight.Right},
-            { "Ba116", Sop.Straight.Unknown},
-            { "Ba117", Sop.Straight.Right},
-            { "Ba118", Sop.Straight.Unknown},
-            { "Ba119", Sop.Straight.Unknown},
-            { "Ba120", Sop.Straight.Unknown},
-            { "Ba121", Sop.Straight.Unknown},
-            { "Ha60", Sop.Straight.Unknown},
-            { "Ha61", Sop.Straight.Unknown},
-            { "Ha62", Sop.Straight.Unknown},
-            { "Ha63", Sop.Straight.Unknown},
-            { "Ha64", Sop.Straight.Unknown},
-            { "Ha65", Sop.Straight.Unknown},
-            { "Ha66", Sop.Straight.Unknown},
-            { "Ha67", Sop.Straight.Unknown},
-            { "Ha68", Sop.Straight.Unknown},
-            { "Ha69", Sop.Straight.Unknown},
-            { "Mk60", Sop.Straight.Unknown},
-            { "Mk61", Sop.Straight.Unknown},
-            { "Mk62", Sop.Straight.Unknown},
-            { "Mk63", Sop.Straight.Unknown},
-            { "Mk64", Sop.Straight.Unknown},
-            { "Mk65", Sop.Straight.Unknown},
-            { "Mk66", Sop.Straight.Unknown},
-            { "Mk67", Sop.Straight.Unknown},
-            { "Mk68", Sop.Straight.Unknown},
-            { "Mk69", Sop.Straight.Unknown},
-            { "Sn60", Sop.Straight.Unknown},
-            { "Sn61", Sop.Straight.Unknown},
-            { "Sn62", Sop.Straight.Unknown},
-            { "Sn63", Sop.Straight.Unknown},
-            { "Sn64", Sop.Straight.Unknown},
-            { "Sn65", Sop.Straight.Unknown},
-            { "Sn66", Sop.Straight.Unknown},
-            { "Sn67", Sop.Straight.Unknown},
-            { "Sn69", Sop.Straight.Unknown},
-            { "Vd60", Sop.Straight.Unknown},
-            { "Vd61", Sop.Straight.Unknown},
-            { "Vd62", Sop.Straight.Unknown},
-            { "Vd63", Sop.Straight.Unknown},
-            { "Vd64", Sop.Straight.Unknown},
-            { "Vd65", Sop.Straight.Unknown},
-            { "Vd66", Sop.Straight.Unknown}
+            { "Ba117", Sop.Straight.Right}
         };
 
 
@@ -135,7 +71,9 @@ namespace ipocs.jmri
                             }
                             if (obj == null) throw new Exception("no Name");
                             if (url == null) throw new Exception("no SystemName");
-                            var sop  = new Sop(ocs, obj, url, sys, sops[obj]);
+                            var st = Sop.Straight.Unknown;
+                            if (sops.ContainsKey(obj)) st = sops[obj];
+                            var sop  = new Sop(ocs, obj, url, sys, st);
                             ocs.Add(sop);
                             if (urlToObj.ContainsKey(url)) throw new Exception("dup url " + url);
                             if (nameToObj.ContainsKey(obj)) throw new Exception("dup obj " + sop);
@@ -145,6 +83,10 @@ namespace ipocs.jmri
                     }
                 }
             }
+        }
+
+        public bool IsOcs(string unitid) {
+            return unitidToOcs.ContainsKey(unitid);
         }
 
         public Ocs GetOcs(string unitid) {

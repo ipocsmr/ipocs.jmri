@@ -104,7 +104,7 @@ namespace ipocs.jmri
             };
         
             Networker.Instance.OnConnect += (c) => {
-                Console.WriteLine("OnConnect: " + c.UnitID);
+                Console.WriteLine("OnConnect: OCS(" + c.UnitID + ")");
 
                 if (unitidToClient.ContainsKey("" + c.UnitID))
                     unitidToClient["" + c.UnitID]?.Disconnect();
@@ -158,10 +158,16 @@ namespace ipocs.jmri
             };
 
             Networker.Instance.OnDisconnect += (c) => {
-                Console.WriteLine("onDisconnect: OCS(" + c.UnitID + ")");
-                world.GetOcs("" + c.UnitID)?.Lost();
-                if (c == unitidToClient["" + c.UnitID])
-                    unitidToClient["" + c.UnitID] = null;
+                var key = "" + c.UnitID; 
+                Console.WriteLine("onDisconnect: OCS(" + key + ")");
+                if (world.IsOcs(key))
+                    world.GetOcs(key).Lost();
+                if (!unitidToClient.ContainsKey(key)) {
+                    Console.WriteLine("onDisconnect: unknown OCS(" + key + ")");
+                    return;
+                }
+                if (c == unitidToClient[key])
+                    unitidToClient[key] = null;
             };
 
             Networker.Instance.OnListening += (isListening) => {
