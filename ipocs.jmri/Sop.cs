@@ -4,8 +4,7 @@ namespace ipocs.jmri
 {
     public class Sop
     {
-        public enum State { Unknown, Thrown, Closed };
-        public enum Straight { Unknown, Left, Right };
+        public enum State { Unknown, Thrown, Closed, Moving, OutOfControl };
 
         public string name { get; }
         public string sysname { get; }
@@ -13,6 +12,7 @@ namespace ipocs.jmri
 
         public string url { get; }
         private State state { get; set; } 
+        //private State previousState { get; set; } 
 
         private void SetState(State value) {
             if (state != value)
@@ -24,16 +24,13 @@ namespace ipocs.jmri
             return state;
          }
 
-        public Straight straight { get; }
-
         bool changed;
 
-        public Sop(Ocs ocs, string name, string url, string sysname, Straight straight) {
+        public Sop(Ocs ocs, string name, string url, string sysname) {
             this.ocs = ocs;
             this.name = name;
             this.url = url;
             this.sysname = sysname;
-            this.straight = straight;
         }
 
         public void SetClosed() {
@@ -48,10 +45,10 @@ namespace ipocs.jmri
             SetState(State.Unknown);
         }
         public void SetLeft() {
-            SetState(straight == Straight.Left ? State.Closed : State.Thrown);
+            SetState(State.Closed);
         }
         public void SetRight() {
-            SetState(straight == Straight.Right ? State.Closed : State.Thrown);
+            SetState(State.Thrown);
         }
 
         public bool IsChanged() {

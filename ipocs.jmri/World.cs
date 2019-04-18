@@ -12,16 +12,8 @@ namespace ipocs.jmri
     public class World
     {
         ConcurrentDictionary<string, Ocs> unitidToOcs = new ConcurrentDictionary<string, Ocs>();
-
         ConcurrentDictionary<string, Sop> urlToObj = new ConcurrentDictionary<string, Sop>();
         ConcurrentDictionary<string, Sop> nameToObj = new ConcurrentDictionary<string, Sop>();
-
-        // fixme: remove this temporary workaround
-        Dictionary<string, Sop.Straight> sops = new Dictionary<string, Sop.Straight>() {
-            { "Ba115", Sop.Straight.Right},
-            { "Ba117", Sop.Straight.Right}
-        };
-
 
         public World() {
         }
@@ -71,9 +63,7 @@ namespace ipocs.jmri
                             }
                             if (obj == null) throw new Exception("no Name");
                             if (url == null) throw new Exception("no SystemName");
-                            var st = Sop.Straight.Unknown;
-                            if (sops.ContainsKey(obj)) st = sops[obj];
-                            var sop  = new Sop(ocs, obj, url, sys, st);
+                            var sop  = new Sop(ocs, obj, url, sys);
                             ocs.Add(sop);
                             if (urlToObj.ContainsKey(url)) throw new Exception("dup url " + url);
                             if (nameToObj.ContainsKey(obj)) throw new Exception("dup obj " + sop);

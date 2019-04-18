@@ -82,15 +82,7 @@ namespace ipocs.jmri
                 else if (sop.GetState() == Sop.State.Closed) {
                     pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
                 } else {
-                    // TODO set unknown?!?!?!
-                    //pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.
-                }
-
-                if (sop.straight == Sop.Straight.Left) {
-                    if (pkg.RQ_POINTS_COMMAND == RQ_POINTS_COMMAND.DIVERT_LEFT)
-                        pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_RIGHT;
-                    else if (pkg.RQ_POINTS_COMMAND == RQ_POINTS_COMMAND.DIVERT_RIGHT)
-                        pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
+                    // TODO set unknown?
                 }
 
                 if (sop.IsChanged()) {
@@ -124,17 +116,21 @@ namespace ipocs.jmri
                             continue;
                         }
                         var sPkg = pkg as IPOCS.Protocol.Packets.Status.Points;
-                        if (sPkg.RQ_POINTS_STATE == RQ_POINTS_STATE.LEFT)
-                            sop.SetLeft();
-                        else if (sPkg.RQ_POINTS_STATE == RQ_POINTS_STATE.RIGHT)
-                            sop.SetRight();
+                        switch (sPkg.RQ_POINTS_STATE) {
+                            case RQ_POINTS_STATE.LEFT: sop.SetLeft(); break; 
+                            case RQ_POINTS_STATE.RIGHT: sop.SetRight(); break;
+                            //case RQ_POINTS_STATE.MOVING: sop.SetMoving(); break; 
+                            //case RQ_POINTS_STATE.OUT_OF_CONTROL: sop.SetOutOfControl(); break; 
+                            default: sop.SetUnknown(); break;
+                        }
                         string order;
-                        if (sop.straight == Sop.Straight.Left)
+                        if (sop.GetState() == Sop.State.Closed)
                             order = "CLOSED";
-                        else if (sop.straight == Sop.Straight.Right)
+                        if (sop.GetState() == Sop.State.Thrown)
                             order = "THROWN";
                         else
                             order = "UNKNOWN";
+
                         Console.WriteLine("onMessage: " + m.RXID_OBJECT + " interpreted " + sPkg.RQ_POINTS_STATE + " as " + order + " on " + sop.url);
                         if (!sop.IsChanged()) {
                             Console.WriteLine("onMessage: no action");
