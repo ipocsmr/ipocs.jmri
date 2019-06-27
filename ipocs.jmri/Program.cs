@@ -126,16 +126,18 @@ namespace ipocs.jmri
                         string order;
                         if (sop.GetState() == Sop.State.Closed)
                             order = "CLOSED";
-                        if (sop.GetState() == Sop.State.Thrown)
+                        else if (sop.GetState() == Sop.State.Thrown)
                             order = "THROWN";
                         else
                             order = "UNKNOWN";
 
                         Console.WriteLine("onMessage: " + m.RXID_OBJECT + " interpreted " + sPkg.RQ_POINTS_STATE + " as " + order + " on " + sop.url);
+                        /*
                         if (!sop.IsChanged()) {
                             Console.WriteLine("onMessage: no action");
                             return;
                         }
+                        */
                         var message = new MqttApplicationMessageBuilder()
                             .WithTopic(sop.url)
                             .WithPayload(order)

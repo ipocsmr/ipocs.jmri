@@ -31,6 +31,7 @@ namespace ipocs.jmri
             this.name = name;
             this.url = url;
             this.sysname = sysname;
+            this.state = State.Unknown;
         }
 
         public void SetClosed() {
