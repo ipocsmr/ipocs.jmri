@@ -7,10 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="MQTTnet" Version="2.8.5" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\ipocs.net\IPOCS.csproj" />
+    <PackageReference Include="ipocs" Version="1.0.2" />
   </ItemGroup>
 
 </Project>
