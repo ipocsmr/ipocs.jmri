@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="MQTTnet" Version="2.8.5" />
     <PackageReference Include="ipocs" Version="1.0.2" />
+    <PackageReference Include="GitVersionTask" Version="5.3.7" />
   </ItemGroup>
 
 </Project>
