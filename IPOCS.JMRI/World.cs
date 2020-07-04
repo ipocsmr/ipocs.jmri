@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace ipocs.jmri
+namespace IPOCS.JMRI
 {
     public class World
     {

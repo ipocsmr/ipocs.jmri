@@ -1,5 +1,6 @@
 using System.Collections.Generic;
-namespace ipocs.jmri
+
+namespace IPOCS.JMRI
 {
     public class Ocs
     {

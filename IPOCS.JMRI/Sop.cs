@@ -1,6 +1,6 @@
 using System;
 
-namespace ipocs.jmri
+namespace IPOCS.JMRI
 {
     public class Sop
     {

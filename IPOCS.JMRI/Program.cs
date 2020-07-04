@@ -14,7 +14,7 @@ using System.Xml;
 using System.Diagnostics;
 using CommandLine;
 
-namespace ipocs.jmri
+namespace IPOCS.JMRI
 {
     class Program
     {

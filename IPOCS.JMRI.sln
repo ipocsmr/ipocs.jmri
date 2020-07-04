@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ipocs.jmri", "ipocs.jmri\ipocs.jmri.csproj", "{D3680D8D-71E9-4A1B-8864-1AF0D0BCA443}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IPOCS.JMRI", "IPOCS.JMRI\IPOCS.JMRI.csproj", "{D3680D8D-71E9-4A1B-8864-1AF0D0BCA443}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

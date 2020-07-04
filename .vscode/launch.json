@@ -6,7 +6,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/ipocs.jmri/bin/Debug/netcoreapp2.2/ipocs.jmri.dll",
+            "program": "${workspaceFolder}/IPOCS.JMRI/bin/Debug/netcoreapp2.2/IPOCS.JMRI.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "console": "internalConsole",
