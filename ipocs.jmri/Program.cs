@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Diagnostics;
+using CommandLine;
 
 namespace ipocs.jmri
 {
@@ -180,14 +181,23 @@ namespace ipocs.jmri
         }
 
         static void Main(string[] args) {
-            World world = new World();
-            world.LoadFile(args.Length == 1 ? args[0] :
-                Environment.GetEnvironmentVariable("HOME") + "/configdata.xml");
-            var prog = new Program(world);
-            for (;;) {
-                prog.Tick();
-                Thread.Sleep(1000);
-            }
+            System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+            string version = fvi.FileVersion;
+            Console.WriteLine($"{fvi.ProductName} Version {version}");
+
+            Parser.Default.ParseArguments<Options>(args)
+                   .WithParsed<Options>(o =>
+                   {
+                        World world = new World();
+                        world.LoadFile(string.IsNullOrEmpty(o.Configuration) ? "ConfigData.xml" : o.Configuration);
+                        var prog = new Program(world);
+                        for (;;) {
+                            prog.Tick();
+                            Thread.Sleep(1000);
+                        }
+                   });
+
         }
     }
 }
