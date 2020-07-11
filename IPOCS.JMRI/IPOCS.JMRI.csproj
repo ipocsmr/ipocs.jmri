@@ -12,6 +12,7 @@
     <PackageReference Include="MQTTnet" Version="3.0.11" />
     <PackageReference Include="ipocs" Version="1.0.2" />
     <PackageReference Include="GitVersionTask" Version="5.3.7" />
+    <PackageReference Include="nulastudio.NetCoreBeauty" Version="1.2.8" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IPOCS.JMRI.Common\IPOCS.JMRI.Common.csproj" />
