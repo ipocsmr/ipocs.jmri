@@ -51,7 +51,7 @@ namespace IPOCS.JMRI
         {
           RQ_POINTS_STATE.LEFT => "CLOSED",
           RQ_POINTS_STATE.RIGHT => "THROWN",
-          RQ_POINTS_STATE.MOVING => "UNKNOWN",
+          RQ_POINTS_STATE.MOVING => "INCONSISTENT",
           RQ_POINTS_STATE.OUT_OF_CONTROL => "UNKNOWN",
           _ => "UNKNOWN"
         };

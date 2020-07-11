@@ -36,12 +36,12 @@ namespace IPOCS.JMRI
       var ipocsHandler = new IpocsHandler();
       var translator = new Translator(ipocsHandler, jmriHandler, options);
 
-      using (var fileStream = File.Open(options.JmriConfig, FileMode.Open))
+      using (var fileStream = File.Open(options.JmriConfig, FileMode.Open, FileAccess.Read, FileShare.Read))
       {
         var serializer = new XmlSerializer(typeof(global::JMRI.Layout_Config));
         jmriConfig = serializer.Deserialize(fileStream) as global::JMRI.Layout_Config;
       }
-      using (var fileStream = File.Open(options.IpocsConfig, FileMode.Open))
+      using (var fileStream = File.Open(options.IpocsConfig, FileMode.Open, FileAccess.Read))
       {
         var types = (from lAssembly in AppDomain.CurrentDomain.GetAssemblies()
                      from lType in lAssembly.GetTypes()

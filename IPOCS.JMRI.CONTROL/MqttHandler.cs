@@ -7,12 +7,11 @@ using MQTTnet.Client.Receiving;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace IPOCS.JMRI
+namespace IPOCS.JMRI.CONTROL
 {
-  public class JmriHandler: IMqttClientConnectedHandler, IMqttApplicationMessageReceivedHandler, IMqttClientDisconnectedHandler
+  public class MqttHandler: IMqttClientConnectedHandler, IMqttApplicationMessageReceivedHandler, IMqttClientDisconnectedHandler
   {
     private Options Options { get; }
     private IMqttClient Broker { get; }
@@ -20,7 +19,7 @@ namespace IPOCS.JMRI
 
     private Dictionary<string, string> LastRecv { get; } = new Dictionary<string, string>();
 
-    public JmriHandler(Options options)
+    public MqttHandler(Options options)
     {
       ClientID = Guid.NewGuid().ToString();
       Options = options;
@@ -52,18 +51,17 @@ namespace IPOCS.JMRI
 
     public async Task HandleConnectedAsync(MqttClientConnectedEventArgs eventArgs)
     {
-      Networker.Instance.isListening = true;
       Console.WriteLine("MQTT: Connected to server.");
       await Broker.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("#").Build());
     }
 
-    public delegate void OnMqttMessageDelegate(string topic, string payload);
+    public delegate void OnMqttMessageDelegate(string systemName, string payload);
     public event OnMqttMessageDelegate OnMqttMessage;
 
     public Task HandleApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs eventArgs)
     {
       var topic = eventArgs.ApplicationMessage.Topic;
-      var payload = Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload);
+      var payload = System.Text.Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload);
       if (LastRecv.GetValueOrDefault(topic, string.Empty) == payload)
       {
         Console.WriteLine($"MQTT: Received my own message, ignoring.");
@@ -72,20 +70,18 @@ namespace IPOCS.JMRI
       LastRecv[topic] = payload;
 
       Console.WriteLine($"MQTT: Received {payload} on {topic}");
-      Send(topic, "UNKNOWN");
-      OnMqttMessage?.Invoke(topic, payload);
+      OnMqttMessage?.Invoke("MT" + topic.Split('/').Last(), payload);
       return Task.CompletedTask;
     }
 
     public Task HandleDisconnectedAsync(MqttClientDisconnectedEventArgs eventArgs)
     {
       IMqttClientOptions options = new MqttClientOptionsBuilder()
-          .WithClientId(ClientID)
-          .WithTcpServer(Options.MqttHost)
-          .Build();
-      Console.WriteLine($"MQTT: Attempting to reconnect to server at {Options.MqttHost}...");
+        .WithClientId(ClientID)
+        .WithTcpServer(Options.MqttHost)
+        .Build();
+      Console.WriteLine($"MQTT: Attempting to connect to server at {Options.MqttHost}...");
       Broker.ConnectAsync(options);
-      Networker.Instance.isListening = false;
       // TODO: Unsubscribe
       return Task.CompletedTask;
     }
