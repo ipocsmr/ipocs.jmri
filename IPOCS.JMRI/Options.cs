@@ -1,11 +1,14 @@
-using CommandLine;
-using System;
 
 namespace IPOCS.JMRI
 {
   public class Options
   {
-    [Option('c', "configuration", Required = false, HelpText = "Specify a configuration file other than the default (ConfigData.xml in current working folder)")]
-    public string Configuration { get; set; }
+    public string JmriConfig { get; set; }
+
+    public string IpocsConfig { get; set; }
+
+    public string Channel { get; set; }
+
+    public string MqttHost { get; set; }
   }
 }

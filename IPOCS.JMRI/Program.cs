@@ -12,192 +12,95 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Diagnostics;
-using CommandLine;
+using System.Xml.Serialization;
+using System.IO;
+using System.Linq;
+using IPOCS_Programmer.ObjectTypes;
+using System.Collections.ObjectModel;
+using Microsoft.Extensions.Configuration;
 
 namespace IPOCS.JMRI
 {
-    class Program
+  class Program
+  {
+    static void Main()
     {
-        ConcurrentDictionary<string, IPOCS.Client> unitidToClient = new ConcurrentDictionary<string, IPOCS.Client>();
+      global::JMRI.Layout_Config jmriConfig = null;
 
-        Program(World world) {
-            var factory = new MqttFactory();
-            
-            IMqttClient broker = factory.CreateMqttClient();
-            
-            IMqttClientOptions options = new MqttClientOptionsBuilder()
-                .WithClientId(Guid.NewGuid().ToString())
-                .WithTcpServer("localhost")
-                .Build();
+      IConfiguration config = new ConfigurationBuilder()
+          .AddJsonFile("appsettings.json", true, true)
+          .Build();
+      var options = config.Get<Options>();
 
-            //todo: callback for each topic
-            broker.Connected += async (s, e) => {
-                await broker.SubscribeAsync(
-                    new TopicFilterBuilder().WithTopic("#").Build());
-            };
+      var jmriHandler = new JmriHandler(options);
+      var ipocsHandler = new IpocsHandler();
+      var translator = new Translator(ipocsHandler, jmriHandler, options);
 
-            broker.ConnectAsync(options);
+      using (var fileStream = File.Open(options.JmriConfig, FileMode.Open))
+      {
+        var serializer = new XmlSerializer(typeof(global::JMRI.Layout_Config));
+        jmriConfig = serializer.Deserialize(fileStream) as global::JMRI.Layout_Config;
+      }
+      using (var fileStream = File.Open(options.IpocsConfig, FileMode.Open))
+      {
+        var types = (from lAssembly in AppDomain.CurrentDomain.GetAssemblies()
+                     from lType in lAssembly.GetTypes()
+                     where typeof(BasicObject).IsAssignableFrom(lType)
+                     select lType).ToList();
+        var types2 = (from lAssembly in AppDomain.CurrentDomain.GetAssemblies()
+                      from lType in lAssembly.GetTypes()
+                      where typeof(PointsMotor).IsAssignableFrom(lType)
+                      select lType).ToList();
+        types.AddRange(types2);
+        types.Add(typeof(BasicObject));
 
-            broker.ApplicationMessageReceived += (sender, e) => {
-                var topic = e.ApplicationMessage.Topic;
-                var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+        XmlSerializer xsSubmit = new XmlSerializer(translator.IpocsConfig.GetType(), types.ToArray());
+        translator.IpocsConfig.AddRange(xsSubmit.Deserialize(fileStream) as List<Concentrator>);
+      }
 
-                Console.WriteLine("MQTT: Received " + payload + " on " + topic);
-                
-                if (payload != "THROWN" && payload != "CLOSED") {
-                    Console.WriteLine("MQTT: Skip unexpected message " + payload);
-                    return;
-                }
-                
-                if (!world.IsSopFromUrl(topic)) {
-                    Console.WriteLine("MQTT: Skip unknown SoP " + topic);
-                    return;
-                }
-                Sop sop = world.GetSopFromUrl(topic);
-                if (!unitidToClient.ContainsKey(sop.ocs.unitid)) {
-                    Console.WriteLine("MQTT: Skip unconnected OCS("+ sop.ocs.unitid + ")");
-                    return;
-                }
+      if (jmriConfig == null || translator.IpocsConfig.Count == 0)
+      {
+        Console.WriteLine("Unable to read configurations!");
+        return;
+      }
 
-                // can we use sender instead?
-                var cl = unitidToClient[sop.ocs.unitid];
+      System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+      FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+      string version = fvi.FileVersion;
+      Console.WriteLine($"{fvi.ProductName} Version {version}");
 
-                var msg = new IPOCS.Protocol.Message();
-                msg.RXID_OBJECT = sop.name;
-                var pkg = new IPOCS.Protocol.Packets.Orders.ThrowPoints();
+      Console.WriteLine("Mapping JMRI and IPOCS objects");
 
-                if (payload == "CLOSED") {
-                    sop.SetClosed();
-                } else if (payload == "THROWN") {
-                    sop.SetThrown();
-                } else {
-                    sop.SetUnknown();
-                }
 
-                // todo remove when set unknown
-                pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
+      var turnoutManager = jmriConfig.Turnouts.First(tmt => tmt.Class == "jmri.jmrix.mqtt.configurexml.MqttTurnoutManagerXml");
+      foreach (var turnout in turnoutManager.Turnout)
+      {
+        Console.WriteLine(turnout.SystemName + " = " + turnout.UserName);
+        translator.TurnoutMapping.Add(turnout.UserName, turnout.SystemName);
+      }
 
-                if (sop.GetState() == Sop.State.Thrown) {
-                    pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_RIGHT;
-                }
-                else if (sop.GetState() == Sop.State.Closed) {
-                    pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT;
-                } else {
-                    // TODO set unknown?
-                }
+      ipocsHandler.Setup();
+      jmriHandler.Setup();
 
-                if (sop.IsChanged()) {
-                    sop.ClearChange();
-                    msg.packets.Add(pkg);
-                    cl.Send(msg);
-                    Console.WriteLine("MQTT --> OCS(" + sop.ocs.unitid + "): SoP(" + sop.name + "): " + pkg.RQ_POINTS_COMMAND.ToString());
-                } else {
-                    Console.WriteLine("MQTT: skip same state");
-                }
-            };
-        
-            Networker.Instance.OnConnect += (c) => {
-                Console.WriteLine("OnConnect: OCS(" + c.UnitID + ")");
-
-                if (unitidToClient.ContainsKey("" + c.UnitID))
-                    unitidToClient["" + c.UnitID]?.Disconnect();
-                unitidToClient["" + c.UnitID] = c;
-
-                c.OnMessage += async (m) => {
-                    Console.WriteLine("onMessage: from OCS(" + c.UnitID + ")");
-                    if (!world.IsSopFromName(m.RXID_OBJECT)) { 
-                        Console.WriteLine("onMessage: Unknown object " + m.RXID_OBJECT);
-                        return;
-                    }
-                    Console.WriteLine("onMessage: Known object " + m.RXID_OBJECT);
-                    Sop sop = world.GetSopFromName(m.RXID_OBJECT);
-                    foreach (var pkg in m.packets) {
-                        if (!(pkg is IPOCS.Protocol.Packets.Status.Points)) {
-                            Console.WriteLine("onMessage: Unexpected package type");
-                            continue;
-                        }
-                        var sPkg = pkg as IPOCS.Protocol.Packets.Status.Points;
-                        switch (sPkg.RQ_POINTS_STATE) {
-                            case RQ_POINTS_STATE.LEFT: sop.SetLeft(); break; 
-                            case RQ_POINTS_STATE.RIGHT: sop.SetRight(); break;
-                            //case RQ_POINTS_STATE.MOVING: sop.SetMoving(); break; 
-                            //case RQ_POINTS_STATE.OUT_OF_CONTROL: sop.SetOutOfControl(); break; 
-                            default: sop.SetUnknown(); break;
-                        }
-                        string order;
-                        if (sop.GetState() == Sop.State.Closed)
-                            order = "CLOSED";
-                        else if (sop.GetState() == Sop.State.Thrown)
-                            order = "THROWN";
-                        else
-                            order = "UNKNOWN";
-
-                        Console.WriteLine("onMessage: " + m.RXID_OBJECT + " interpreted " + sPkg.RQ_POINTS_STATE + " as " + order + " on " + sop.url);
-                        /*
-                        if (!sop.IsChanged()) {
-                            Console.WriteLine("onMessage: no action");
-                            return;
-                        }
-                        */
-                        var message = new MqttApplicationMessageBuilder()
-                            .WithTopic(sop.url)
-                            .WithPayload(order)
-                            .Build();
-                        sop.ClearChange();
-                        await broker.PublishAsync(message);
-                        Console.WriteLine("onMessage: published");
-
-                    }
-                };
-            };
-
-            Networker.Instance.OnConnectionRequest += (c, r) => {
-                Console.WriteLine("OnConnectionRequest: OCS(" + c.UnitID + ")");
-                return true;
-            };
-
-            Networker.Instance.OnDisconnect += (c) => {
-                var key = "" + c.UnitID; 
-                Console.WriteLine("onDisconnect: OCS(" + key + ")");
-                if (world.IsOcs(key))
-                    world.GetOcs(key).Lost();
-                if (!unitidToClient.ContainsKey(key)) {
-                    Console.WriteLine("onDisconnect: unknown OCS(" + key + ")");
-                    return;
-                }
-                if (c == unitidToClient[key])
-                    unitidToClient[key] = null;
-            };
-
-            Networker.Instance.OnListening += (isListening) => {
-                Console.WriteLine("isListening: " + isListening);
-            };
-
-            Networker.Instance.isListening = true;
+      Console.WriteLine("Enter q<RETURN> to exit program");
+      while (true)
+      {
+        Console.Write("> ");
+        string command = Console.ReadLine();
+        if (command == "q")
+        {
+          break;
         }
-
-        void Tick() {
-
+        string[] parts = command.Split(':');
+        if (parts.Length != 3)
+        {
+          continue;
         }
-
-        static void Main(string[] args) {
-            System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-            string version = fvi.FileVersion;
-            Console.WriteLine($"{fvi.ProductName} Version {version}");
-
-            Parser.Default.ParseArguments<Options>(args)
-                   .WithParsed<Options>(o =>
-                   {
-                        World world = new World();
-                        world.LoadFile(string.IsNullOrEmpty(o.Configuration) ? "ConfigData.xml" : o.Configuration);
-                        var prog = new Program(world);
-                        for (;;) {
-                            prog.Tick();
-                            Thread.Sleep(1000);
-                        }
-                   });
-
+        if (parts[0] == "MQTT")
+        {
+          jmriHandler.Send(parts[1], parts[2]);
         }
+      }
     }
+  }
 }

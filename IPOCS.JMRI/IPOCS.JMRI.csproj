@@ -6,10 +6,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.8.0" />
-    <PackageReference Include="MQTTnet" Version="2.8.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="3.1.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.5" />
+    <PackageReference Include="MQTTnet" Version="3.0.11" />
     <PackageReference Include="ipocs" Version="1.0.2" />
     <PackageReference Include="GitVersionTask" Version="5.3.7" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IPOCS.JMRI.Common\IPOCS.JMRI.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
