@@ -1,6 +1,8 @@
 ﻿using IPOCS.Protocol;
+using IPOCS_Programmer.ObjectTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace IPOCS.JMRI
 {
@@ -54,6 +56,35 @@ namespace IPOCS.JMRI
     private bool? Instance_OnConnectionRequest(Client client, Protocol.Packets.ConnectionRequest request)
     {
       Console.WriteLine($"IPOCS: Client attempting to connect");
+      var concentrator = Concentrators.FirstOrDefault((c) => c.UnitID == client.UnitID);
+      if (concentrator == null)
+      {
+        return false;
+      }
+      List<byte> vector;
+      try
+      {
+        vector = concentrator.Serialize();
+      }
+      catch (NullReferenceException)
+      {
+        return false;
+      }
+
+      ushort providedChecksum = ushort.Parse(request.RXID_SITE_DATA_VERSION);
+      ushort computedChecksum = IPOCS.CRC16.Calculate(vector.ToArray());
+      if (providedChecksum == 0 || computedChecksum != providedChecksum)
+      {
+        var responseMsg = new Message();
+        responseMsg.RXID_OBJECT = client.UnitID.ToString();
+        responseMsg.packets.Add(new Protocol.Packets.ApplicationData
+        {
+          RNID_XUSER = 0x0001,
+          PAYLOAD = vector.ToArray()
+        });
+        client.Send(responseMsg);
+        return false;
+      }
       return true;
     }
 
