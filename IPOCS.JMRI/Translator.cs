@@ -1,5 +1,6 @@
-﻿using IPOCS.Protocol.Packets.Orders;
-using IPOCS.Protocol.Packets.Status;
+﻿using IPOCS.JMRI.ObjectExtensions;
+using IPOCS.JMRI.Translators;
+using IPOCS.Protocol;
 using IPOCS_Programmer.ObjectTypes;
 using System;
 using System.Collections.Generic;
@@ -9,95 +10,77 @@ namespace IPOCS.JMRI
 {
   public class Translator
   {
-    public List<Concentrator> IpocsConfig { get; set; } = new List<Concentrator>();
-
-    public Dictionary<string, string> TurnoutMapping = new Dictionary<string, string>();
-    public Dictionary<string, Protocol.Packet> LastState = new Dictionary<string, Protocol.Packet>();
+    private Dictionary<string, string> ObjectMappings { get; } = new Dictionary<string, string>();
     public Options Options { get; }
 
-    public IpocsHandler IpocsHandler { get; }
-    public JmriHandler JmriHandler { get; }
+    private IpocsHandler IpocsHandler { get; }
+    private JmriHandler JmriHandler { get; }
 
-    public Translator(IpocsHandler ipocsHandler, JmriHandler jmriHandler, Options options)
+    public Translator(IpocsHandler ipocsHandler, JmriHandler jmriHandler, Dictionary<string, string> objectMappings, Options options)
     {
       Options = options;
       IpocsHandler = ipocsHandler;
       JmriHandler = jmriHandler;
+      ObjectMappings = objectMappings;
       IpocsHandler.OnMessage += Transship;
       JmriHandler.OnMqttMessage += Transship;
     }
 
-    public void Transship(Protocol.Message message)
+    public void Transship(Message message)
     {
       Console.WriteLine("onMessage: from OCS(" + message.RXID_OBJECT + ")");
-      if (!TurnoutMapping.ContainsKey(message.RXID_OBJECT))
+      if (!ObjectMappings.ContainsKey(message.RXID_OBJECT))
       {
         Console.WriteLine("onMessage: Unknown object " + message.RXID_OBJECT);
         return;
       }
 
-      foreach (var pkg in message.packets)
+      foreach (var basePkt in message.packets)
       {
-        if (!(pkg is IPOCS.Protocol.Packets.Status.Points))
+        if (basePkt.GetTranslator() is BaseTranslator translator)
         {
-          Console.WriteLine($"onMessage: Unexpected package type ({ pkg.GetType().FullName })");
-          continue;
+          var state = translator.GetPayloadFromPacket(message, basePkt);
+          var topic = string.Join('/', Options.Channel, "state", "track", "turnout", ObjectMappings[message.RXID_OBJECT].Substring(2));
+          JmriHandler.Send(topic, state);
+          Console.WriteLine("onMessage: published");
         }
-
-        LastState[message.RXID_OBJECT] = pkg;
-        var sPkg = pkg as Protocol.Packets.Status.Points;
-
-        var order = sPkg.RQ_POINTS_STATE switch
+        else
         {
-          RQ_POINTS_STATE.LEFT => "CLOSED",
-          RQ_POINTS_STATE.RIGHT => "THROWN",
-          RQ_POINTS_STATE.MOVING => "MOVING",
-          RQ_POINTS_STATE.OUT_OF_CONTROL => "UNKNOWN",
-          _ => "UNKNOWN"
-        };
-
-        var topic = string.Join('/', Options.Channel, "state", "track", "turnout", TurnoutMapping[message.RXID_OBJECT].Substring(2));
-        Console.WriteLine($"onMessage: {message.RXID_OBJECT} interpreted {sPkg.RQ_POINTS_STATE} as {order} on {topic}");
-        JmriHandler.Send(topic, order);
-        Console.WriteLine("onMessage: published");
+          Console.WriteLine($"onMessage: Packet type does not have a translator {basePkt.GetType().FullName}");
+        }
       };
     }
 
     public void Transship(string topic, string payload)
     {
       var parts = topic.Split('/');
-      if (!TurnoutMapping.ContainsValue("MT" + parts.Last()))
+      if (!ObjectMappings.ContainsValue("MT" + parts.Last()))
       {
         Console.WriteLine($"MQTT: Unknown object received: {topic}");
         return;
       }
 
-      var msg = new Protocol.Message
+      var msg = new Message
       {
-        RXID_OBJECT = TurnoutMapping.First(part => part.Value == "MT" + parts.Last()).Key
+        RXID_OBJECT = ObjectMappings.First(part => part.Value == "MT" + parts.Last()).Key
       };
-
-      var pkg = new ThrowPoints();
-      switch (payload)
+      if (parts.GetTranslator(parts.SkipLast(1).Last()) is BaseTranslator translator)
       {
-        case "CLOSED": pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_LEFT; break;
-        case "THROWN": pkg.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_RIGHT; break;
-        default:
-          // TODO: Send status back to JMRI
-          Console.WriteLine($"JMRI sent an unknown state: {payload}");
-          return;
+        if (translator.GetPacketFromPayload(payload) is Packet pkt)
+        {
+          msg.packets.Add(pkt);
+        }
+        else
+        {
+          Console.WriteLine($"No packet created for {topic} from payload {payload}");
+        }
       }
-      msg.packets.Add(pkg);
-
-      var query = from ic in IpocsConfig
-                  where ic.Objects.Any(bo => bo.Name == msg.RXID_OBJECT)
-                  select ic.UnitID;
-      if (query.Count() == 0)
+      else
       {
-        Console.WriteLine($"JMRI sent an order to an unknown object");
-        return;
+        Console.WriteLine($"Topic has no translator: {topic}");
       }
-      IpocsHandler.Send(query.First(), msg);
+
+      IpocsHandler.Send(msg.RXID_OBJECT, msg);
     }
   }
 }

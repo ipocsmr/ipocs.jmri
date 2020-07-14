@@ -18,6 +18,7 @@ using System.Linq;
 using IPOCS_Programmer.ObjectTypes;
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.Configuration;
+using IPOCS.JMRI.Translators;
 
 namespace IPOCS.JMRI
 {
@@ -25,17 +26,19 @@ namespace IPOCS.JMRI
   {
     static void Main()
     {
+      System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+      FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+      string version = fvi.FileVersion;
+      Console.WriteLine($"{fvi.ProductName} Version {version}");
+
       global::JMRI.Layout_Config jmriConfig = null;
+      List<Concentrator> ipocsConfig = null;
 
       IConfiguration config = new ConfigurationBuilder()
           .AddJsonFile("appsettings.json", false, true)
           .AddJsonFile("appsettings.dev.json", true, true)
           .Build();
       var options = config.Get<Options>();
-
-      var jmriHandler = new JmriHandler(options);
-      var ipocsHandler = new IpocsHandler();
-      var translator = new Translator(ipocsHandler, jmriHandler, options);
 
       using (var fileStream = File.Open(options.JmriConfig, FileMode.Open, FileAccess.Read, FileShare.Read))
       {
@@ -55,38 +58,39 @@ namespace IPOCS.JMRI
         types.AddRange(types2);
         types.Add(typeof(BasicObject));
 
-        XmlSerializer xsSubmit = new XmlSerializer(translator.IpocsConfig.GetType(), types.ToArray());
-        translator.IpocsConfig.AddRange(xsSubmit.Deserialize(fileStream) as List<Concentrator>);
+        XmlSerializer xsSubmit = new XmlSerializer(typeof(List<Concentrator>), types.ToArray());
+        ipocsConfig = xsSubmit.Deserialize(fileStream) as List<Concentrator>;
       }
 
-      if (jmriConfig == null || translator.IpocsConfig.Count == 0)
+      if (jmriConfig == null || ipocsConfig == null || ipocsConfig.Count == 0)
       {
         Console.WriteLine("Unable to read configurations!");
         return;
       }
 
-      System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
-      FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-      string version = fvi.FileVersion;
-      Console.WriteLine($"{fvi.ProductName} Version {version}");
-
-      Console.WriteLine("Mapping JMRI and IPOCS objects");
-
-
-      var turnoutManager = jmriConfig.Turnouts.First(tmt => tmt.Class == "jmri.jmrix.mqtt.configurexml.MqttTurnoutManagerXml");
-      foreach (var turnout in turnoutManager.Turnout)
+      var objectMappings = new Dictionary<string, string>();
+      var allTranslators = from lAssembly in AppDomain.CurrentDomain.GetAssemblies()
+                           from lType in lAssembly.GetTypes()
+                           where typeof(BaseTranslator).IsAssignableFrom(lType) && !lType.IsAbstract
+                           select lType;
+      foreach (var translatorType in allTranslators)
       {
-        Console.WriteLine(turnout.SystemName + " = " + turnout.UserName);
-        translator.TurnoutMapping.Add(turnout.UserName, turnout.SystemName);
+        var translatorMappings = (Activator.CreateInstance(translatorType) as BaseTranslator).LoadNameMappings(jmriConfig);
+        foreach (var translatorMapping in translatorMappings)
+        {
+          objectMappings.Add(translatorMapping.Key, translatorMapping.Value);
+        }
       }
 
+      var jmriHandler = new JmriHandler(options);
+      var ipocsHandler = new IpocsHandler(ipocsConfig);
+      var translator = new Translator(ipocsHandler, jmriHandler, objectMappings, options);
       ipocsHandler.Setup();
       jmriHandler.Setup();
 
       Console.WriteLine("Enter q<RETURN> to exit program");
       while (true)
       {
-        Console.Write("> ");
         string command = Console.ReadLine();
         if (command == "q")
         {

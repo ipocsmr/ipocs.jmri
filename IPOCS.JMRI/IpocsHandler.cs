@@ -8,7 +8,12 @@ namespace IPOCS.JMRI
   {
     public static Dictionary<int, Client> Clients { get; } = new Dictionary<int, Client>();
 
-    public IpocsHandler() { }
+    private List<Concentrator> Concentrators { get; }
+
+    public IpocsHandler(List<Concentrator> ipocsConfig)
+    {
+      Concentrators = ipocsConfig;
+    }
 
     protected void OnClientDisconnected(Client client)
     {
@@ -22,7 +27,7 @@ namespace IPOCS.JMRI
 
     public event Client.OnMessageDelegate OnMessage;
 
-    protected void OnClientMessage(IPOCS.Protocol.Message msg)
+    protected void OnClientMessage(Message msg)
     {
       this.OnMessage?.Invoke(msg);
     }
@@ -57,15 +62,32 @@ namespace IPOCS.JMRI
       Console.WriteLine($"IPOCS: {(isListening ? "L" : "Stopped l")}istening for connections...");
     }
 
-    public void Send(int unitId, Message msg)
+    private Concentrator FindConcentratorForObject(string RXID_OBJECT)
     {
-      if (!Clients.ContainsKey(unitId))
+      var query = from ic in Concentrators
+                  where ic.Objects.Any(bo => bo.Name == RXID_OBJECT)
+                  select ic;
+      return query.FirstOrDefault();
+    }
+
+    public bool Send(string RXID_OBJECT, Message msg)
+    {
+      if (FindConcentratorForObject(RXID_OBJECT) is Concentrator c)
       {
-        Console.WriteLine($"OCS not connected {unitId}");
-        return;
+        if (!Clients.ContainsKey(c.UnitID))
+        {
+          Console.WriteLine($"OCS not connected {c.UnitID}");
+          return false;
+        }
+        Console.WriteLine($"Sending order to OCS {c.UnitID}");
+        Clients[c.UnitID].Send(msg);
       }
-      Console.WriteLine($"Sending order to OCS {unitId}");
-      Clients[unitId].Send(msg);
+      else
+      {
+        Console.WriteLine($"Intended IPOCS receiver not found {RXID_OBJECT}");
+        return false;
+      }
+      return true;
     }
   }
 }
