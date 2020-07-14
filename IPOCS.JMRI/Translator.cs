@@ -2,6 +2,7 @@
 using IPOCS.JMRI.Translators;
 using IPOCS.Protocol;
 using IPOCS_Programmer.ObjectTypes;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,10 +29,10 @@ namespace IPOCS.JMRI
 
     public void Transship(Message message)
     {
-      Console.WriteLine("onMessage: from OCS(" + message.RXID_OBJECT + ")");
+      Log.Information("IPOCS: Status received from {@RXID_OBJECT}", message.RXID_OBJECT);
       if (!ObjectMappings.ContainsKey(message.RXID_OBJECT))
       {
-        Console.WriteLine("onMessage: Unknown object " + message.RXID_OBJECT);
+        Log.Warning("IPOCS: {@RXID_OBJECT} has no mapping to MQTT, ignoring", message.RXID_OBJECT);
         return;
       }
 
@@ -42,11 +43,11 @@ namespace IPOCS.JMRI
           var state = translator.GetPayloadFromPacket(message, basePkt);
           var topic = string.Join('/', Options.Channel, "state", "track", "turnout", ObjectMappings[message.RXID_OBJECT].Substring(2));
           JmriHandler.Send(topic, state);
-          Console.WriteLine("onMessage: published");
+          Log.Information("MQTT: Published {@payload} on {@topic}", state, topic);
         }
         else
         {
-          Console.WriteLine($"onMessage: Packet type does not have a translator {basePkt.GetType().FullName}");
+          Log.Warning("MQTT: Packet type does not have a translator {@PacketType}",basePkt.GetType().FullName);
         }
       };
     }
@@ -56,7 +57,7 @@ namespace IPOCS.JMRI
       var parts = topic.Split('/');
       if (!ObjectMappings.ContainsValue("MT" + parts.Last()))
       {
-        Console.WriteLine($"MQTT: Unknown object received: {topic}");
+        Log.Warning("MQTT: Unable to map topic {@topic} to IPOCS, ignoring", topic);
         return;
       }
 
@@ -72,12 +73,12 @@ namespace IPOCS.JMRI
         }
         else
         {
-          Console.WriteLine($"No packet created for {topic} from payload {payload}");
+          Log.Warning("IPOCS: Translator did not create a packet for {@topic} from {@payload}", topic, payload);
         }
       }
       else
       {
-        Console.WriteLine($"Topic has no translator: {topic}");
+        Log.Warning("IPOCS: Topic does not have a translator {@topic}", topic);
       }
 
       IpocsHandler.Send(msg.RXID_OBJECT, msg);

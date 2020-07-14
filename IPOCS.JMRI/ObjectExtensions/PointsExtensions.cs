@@ -1,5 +1,6 @@
 ﻿using IPOCS.JMRI.Translators;
 using IPOCS.Protocol;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,11 +21,11 @@ namespace IPOCS.JMRI.ObjectExtensions
         var baseTranslator = Activator.CreateInstance(translator) as BaseTranslator;
         if (baseTranslator.SupportedPackets().Contains(basePkt.GetType()))
         {
-          Console.WriteLine($"Found translator: {baseTranslator.GetType().Name}");
+          Log.Debug("Found translator: {@translator}", baseTranslator.GetType().FullName);
           return baseTranslator;
         }
       }
-      Console.WriteLine($"onMessage: Unexpected package type ({ basePkt.GetType().FullName })");
+      Log.Warning("No translator found packet type {@packetType}", basePkt.GetType().FullName);
       return null;
     }
   }

@@ -1,5 +1,6 @@
 ﻿using IPOCS.JMRI.Translators;
 using IPOCS.Protocol;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace IPOCS.JMRI.ObjectExtensions
 {
   public static class StringExtensions
   {
-    public static BaseTranslator GetTranslator(this string[] array, string topicPart)
+    public static BaseTranslator GetTranslator(this string[] _, string topicPart)
     {
       var allTranslators = from lAssembly in AppDomain.CurrentDomain.GetAssemblies()
                            from lType in lAssembly.GetTypes()
@@ -20,11 +21,11 @@ namespace IPOCS.JMRI.ObjectExtensions
         var baseTranslator = Activator.CreateInstance(translator) as BaseTranslator;
         if (baseTranslator.SupportedTopics().Contains(topicPart))
         {
-          Console.WriteLine($"Found translator: {baseTranslator.GetType().Name}");
+          Log.Debug("Found translator: {@translator}", baseTranslator.GetType().FullName);
           return baseTranslator;
         }
       }
-      Console.WriteLine($"GetTranslator: Unexpected topic part ({ topicPart })");
+      Log.Warning("No translator found for topic part {@topicPart}", topicPart);
       return null;
     }
   }

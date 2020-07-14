@@ -19,6 +19,7 @@ using IPOCS_Programmer.ObjectTypes;
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.Configuration;
 using IPOCS.JMRI.Translators;
+using Serilog;
 
 namespace IPOCS.JMRI
 {
@@ -26,10 +27,16 @@ namespace IPOCS.JMRI
   {
     static void Main()
     {
+      var log = new LoggerConfiguration()
+        .WriteTo.Console()
+        .WriteTo.File("app.log", rollingInterval: RollingInterval.Day)
+        .CreateLogger();
+      Log.Logger = log;
+
       System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
       FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
       string version = fvi.FileVersion;
-      Console.WriteLine($"{fvi.ProductName} Version {version}");
+      Log.Information("{@ProductName} Version {@FileVersion}", fvi.ProductName, fvi.FileVersion);
 
       global::JMRI.Layout_Config jmriConfig = null;
       List<Concentrator> ipocsConfig = null;
@@ -64,7 +71,7 @@ namespace IPOCS.JMRI
 
       if (jmriConfig == null || ipocsConfig == null || ipocsConfig.Count == 0)
       {
-        Console.WriteLine("Unable to read configurations!");
+        Log.Error("Unable to read configurations!");
         return;
       }
 
@@ -88,7 +95,7 @@ namespace IPOCS.JMRI
       ipocsHandler.Setup();
       jmriHandler.Setup();
 
-      Console.WriteLine("Enter q<RETURN> to exit program");
+      Log.Information("MAIN: Enter q<RETURN> to exit program");
       while (true)
       {
         string command = Console.ReadLine();
@@ -106,6 +113,7 @@ namespace IPOCS.JMRI
           jmriHandler.Send(parts[1], parts[2]);
         }
       }
+      Log.CloseAndFlush();
     }
   }
 }

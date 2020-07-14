@@ -2,6 +2,7 @@
 using IPOCS.Protocol.Packets.Orders;
 using IPOCS.Protocol.Packets.Status;
 using JMRI;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +21,7 @@ namespace IPOCS.JMRI.Translators
         case "THROWN": pkt.RQ_POINTS_COMMAND = RQ_POINTS_COMMAND.DIVERT_RIGHT; break;
         default:
           // TODO: Send status back to JMRI
-          Console.WriteLine($"JMRI sent an unknown state: {payload}");
+          Log.Error("Points: Unable to translate payload: {@payload}", payload);
           return null;
       }
       return pkt;
@@ -38,9 +39,8 @@ namespace IPOCS.JMRI.Translators
         RQ_POINTS_STATE.OUT_OF_CONTROL => "UNKNOWN",
         _ => "UNKNOWN"
       };
-      Console.WriteLine($"onMessage: {message.RXID_OBJECT} interpreted {sPkg.RQ_POINTS_STATE} as {state}");
+      Log.Information("Points: {@RXID_OBJECT} interpreted {@RQ_POINTS_STATE} as {@state}", message.RXID_OBJECT, sPkg.RQ_POINTS_STATE.ToString(), state);
       return state;
-      throw new NotImplementedException();
     }
 
     internal override Dictionary<string, string> LoadNameMappings(Layout_Config jmriConfig)
@@ -49,7 +49,6 @@ namespace IPOCS.JMRI.Translators
       var turnoutMapping = new Dictionary<string, string>();
       foreach (var turnout in turnoutManager.Turnout)
       {
-        Console.WriteLine(turnout.SystemName + " = " + turnout.UserName);
         turnoutMapping.Add(turnout.UserName, turnout.SystemName);
       }
       return turnoutMapping;

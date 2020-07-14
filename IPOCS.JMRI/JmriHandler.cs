@@ -4,6 +4,7 @@ using MQTTnet.Client.Connecting;
 using MQTTnet.Client.Disconnecting;
 using MQTTnet.Client.Options;
 using MQTTnet.Client.Receiving;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +37,7 @@ namespace IPOCS.JMRI
           .WithClientId(ClientID)
           .WithTcpServer(Options.MqttHost)
           .Build();
-      Console.WriteLine($"MQTT: Attempting to connect to server at {Options.MqttHost}...");
+      Log.Information("MQTT: Attempting to connect to server at {@MqttHost}...", Options.MqttHost);
       Broker.ConnectAsync(options);
     }
 
@@ -53,7 +54,7 @@ namespace IPOCS.JMRI
     public async Task HandleConnectedAsync(MqttClientConnectedEventArgs eventArgs)
     {
       Networker.Instance.isListening = true;
-      Console.WriteLine("MQTT: Connected to server.");
+      Log.Information("MQTT: Connected to server.");
       await Broker.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic(Options.Channel + "/command/#").Build());
     }
 
@@ -66,12 +67,12 @@ namespace IPOCS.JMRI
       var payload = Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload);
       if (LastRecv.GetValueOrDefault(topic, string.Empty) == payload)
       {
-        Console.WriteLine($"MQTT: Received my own message, ignoring.");
+        Log.Warning($"MQTT: Received my own message, ignoring.");
         return Task.CompletedTask;
       }
       LastRecv[topic] = payload;
 
-      Console.WriteLine($"MQTT: Received {payload} on {topic}");
+      Log.Information("MQTT: Received {@payload} on {@topic}", payload, topic);
       OnMqttMessage?.Invoke(topic, payload);
       return Task.CompletedTask;
     }
@@ -82,7 +83,7 @@ namespace IPOCS.JMRI
           .WithClientId(ClientID)
           .WithTcpServer(Options.MqttHost)
           .Build();
-      Console.WriteLine($"MQTT: Attempting to reconnect to server at {Options.MqttHost}...");
+      Log.Warning("MQTT: Attempting to reconnect to server at {@MqttHost}...", Options.MqttHost);
       Broker.ConnectAsync(options);
       Networker.Instance.isListening = false;
       // TODO: Unsubscribe

@@ -1,5 +1,6 @@
 ﻿using IPOCS.Protocol;
 using IPOCS_Programmer.ObjectTypes;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,7 +20,7 @@ namespace IPOCS.JMRI
 
     protected void OnClientDisconnected(Client client)
     {
-      Console.WriteLine($"IPOCS: Unit {client.UnitID} disconnected");
+      Log.Information("IPOCS: Unit {@UnitID} disconnected", client.UnitID);
       client.OnMessage -= OnClientMessage;
       if (Clients.ContainsValue(client))
       {
@@ -40,7 +41,7 @@ namespace IPOCS.JMRI
       {
         Clients[client.UnitID].Disconnect();
       }
-      Console.WriteLine($"IPOCS: Unit {client.UnitID} connected");
+      Log.Information("IPOCS: Unit {@UnitID} connected", client.UnitID);
       Clients[client.UnitID] = client;
       client.OnMessage += OnMessage;
     }
@@ -55,7 +56,6 @@ namespace IPOCS.JMRI
 
     private bool? Instance_OnConnectionRequest(Client client, Protocol.Packets.ConnectionRequest request)
     {
-      Console.WriteLine($"IPOCS: Client attempting to connect");
       var concentrator = Concentrators.FirstOrDefault((c) => c.UnitID == client.UnitID);
       if (concentrator == null)
       {
@@ -75,6 +75,7 @@ namespace IPOCS.JMRI
       ushort computedChecksum = IPOCS.CRC16.Calculate(vector.ToArray());
       if (providedChecksum == 0 || computedChecksum != providedChecksum)
       {
+        Log.Warning("IPOCS: Unit {@UnitID} attempted to connect, failed due to site data mismatch. Sening current configuration...", client.UnitID);
         var responseMsg = new Message();
         responseMsg.RXID_OBJECT = client.UnitID.ToString();
         responseMsg.packets.Add(new Protocol.Packets.ApplicationData
@@ -90,7 +91,7 @@ namespace IPOCS.JMRI
 
     private void Instance_OnListening(bool isListening)
     {
-      Console.WriteLine($"IPOCS: {(isListening ? "L" : "Stopped l")}istening for connections...");
+      Log.Information("IPOCS: {@Listening} for connections...", (isListening ? "L" : "Stopped l") + "istening");
     }
 
     private Concentrator FindConcentratorForObject(string RXID_OBJECT)
@@ -107,15 +108,15 @@ namespace IPOCS.JMRI
       {
         if (!Clients.ContainsKey(c.UnitID))
         {
-          Console.WriteLine($"OCS not connected {c.UnitID}");
+          Log.Warning("IPOCS: Attempting to send order to {@RXID_OBJECT}, but that unit ({@UnitID}) is not connected ", RXID_OBJECT, c.UnitID);
           return false;
         }
-        Console.WriteLine($"Sending order to OCS {c.UnitID}");
+        Log.Information("IPOCS: Sending order to {@RXID_OBJECT} on unit {@UnitID}", RXID_OBJECT, c.UnitID);
         Clients[c.UnitID].Send(msg);
       }
       else
       {
-        Console.WriteLine($"Intended IPOCS receiver not found {RXID_OBJECT}");
+        Log.Error("IPOCS: Intended receiver not found {@RXID_OBJECT}", RXID_OBJECT);
         return false;
       }
       return true;
