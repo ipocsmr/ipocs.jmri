@@ -28,7 +28,8 @@ namespace IPOCS.JMRI
       global::JMRI.Layout_Config jmriConfig = null;
 
       IConfiguration config = new ConfigurationBuilder()
-          .AddJsonFile("appsettings.json", true, true)
+          .AddJsonFile("appsettings.json", false, true)
+          .AddJsonFile("appsettings.dev.json", true, true)
           .Build();
       var options = config.Get<Options>();
 

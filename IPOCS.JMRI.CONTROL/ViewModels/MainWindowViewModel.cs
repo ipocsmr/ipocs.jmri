@@ -25,7 +25,8 @@ namespace IPOCS.JMRI.CONTROL.ViewModels
     public MainWindowViewModel()
     {
       IConfiguration config = new ConfigurationBuilder()
-        .AddJsonFile("appsettings.json", true, true)
+        .AddJsonFile("appsettings.json", false, true)
+        .AddJsonFile("appsettings.dev.json", true, true)
         .Build();
       var options = config.Get<Options>();
       MqttHandler = new MqttHandler(options);
