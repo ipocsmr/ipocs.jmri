@@ -51,12 +51,12 @@ namespace IPOCS.JMRI
         {
           RQ_POINTS_STATE.LEFT => "CLOSED",
           RQ_POINTS_STATE.RIGHT => "THROWN",
-          RQ_POINTS_STATE.MOVING => "INCONSISTENT",
+          RQ_POINTS_STATE.MOVING => "MOVING",
           RQ_POINTS_STATE.OUT_OF_CONTROL => "UNKNOWN",
           _ => "UNKNOWN"
         };
 
-        var topic = string.Join('/', Options.Channel, "track", "turnout", TurnoutMapping[message.RXID_OBJECT].Substring(2));
+        var topic = string.Join('/', Options.Channel, "state", "track", "turnout", TurnoutMapping[message.RXID_OBJECT].Substring(2));
         Console.WriteLine($"onMessage: {message.RXID_OBJECT} interpreted {sPkg.RQ_POINTS_STATE} as {order} on {topic}");
         JmriHandler.Send(topic, order);
         Console.WriteLine("onMessage: published");

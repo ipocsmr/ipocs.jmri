@@ -54,7 +54,7 @@ namespace IPOCS.JMRI
     {
       Networker.Instance.isListening = true;
       Console.WriteLine("MQTT: Connected to server.");
-      await Broker.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("#").Build());
+      await Broker.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic(Options.Channel + "/command/#").Build());
     }
 
     public delegate void OnMqttMessageDelegate(string topic, string payload);
@@ -72,7 +72,6 @@ namespace IPOCS.JMRI
       LastRecv[topic] = payload;
 
       Console.WriteLine($"MQTT: Received {payload} on {topic}");
-      Send(topic, "UNKNOWN");
       OnMqttMessage?.Invoke(topic, payload);
       return Task.CompletedTask;
     }

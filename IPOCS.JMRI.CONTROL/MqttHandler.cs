@@ -52,7 +52,7 @@ namespace IPOCS.JMRI.CONTROL
     public async Task HandleConnectedAsync(MqttClientConnectedEventArgs eventArgs)
     {
       Console.WriteLine("MQTT: Connected to server.");
-      await Broker.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("#").Build());
+      await Broker.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic(Options.Channel + "/state/#").Build());
     }
 
     public delegate void OnMqttMessageDelegate(string systemName, string payload);

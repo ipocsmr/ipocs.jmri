@@ -1,4 +1,5 @@
-﻿using Avalonia.Threading;
+﻿using Avalonia.Media;
+using Avalonia.Threading;
 using IPOCS.JMRI.CONTROL.Models;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -48,7 +49,7 @@ namespace IPOCS.JMRI.CONTROL.ViewModels
         var PointD_Y = turnout.Yd;
 
         var turnoutManagerTurnout = turnoutManager.Turnout.FirstOrDefault(tmt => tmt.UserName == turnout.Turnoutname);
-        var tt = new Turnout(options,
+        var tt = new Turnout(options, Enum.Parse<TurnoutType>(turnout.Type),
           new Avalonia.Point(PointA_X, PointA_Y),
           new Avalonia.Point(PointB_X, PointB_Y),
           new Avalonia.Point(PointC_X, PointC_Y),
@@ -62,7 +63,7 @@ namespace IPOCS.JMRI.CONTROL.ViewModels
           ConnectAName = turnout.Connectaname,
           ConnectBName = turnout.Connectbname,
           ConnectCName = turnout.Connectcname,
-          ConnectDName = turnout.Connectdname,
+          ConnectDName = turnout.Connectdname
         };
 
         Points.Add(tt);
@@ -87,11 +88,12 @@ namespace IPOCS.JMRI.CONTROL.ViewModels
       }
       foreach (var yardO in layoutEditor.Layoutturntable)
       {
-        Points.Add(new Point
+        Points.Add(new TurnTable
         {
           Ident = yardO.Ident,
           X = yardO.Xcen,
-          Y = yardO.Ycen
+          Y = yardO.Ycen,
+          Radius = yardO.Radius
         });
       }
       foreach (var tracksegment in layoutEditor.Tracksegment)
@@ -149,24 +151,39 @@ namespace IPOCS.JMRI.CONTROL.ViewModels
           Y2 = point2.Y
         });
       }
+      foreach (var layoutLabel in layoutEditor.Positionablelabel)
+      {
+
+        var brush = new BrushConverter().ConvertFromString(Color.FromRgb(layoutLabel.Red, layoutLabel.Green, layoutLabel.Blue).ToString()) as IBrush;
+        Points.Add(new PositionLabel
+        {
+          X = layoutLabel.X,
+          Y = layoutLabel.Y,
+          Text = layoutLabel.Text,
+          FontName = FontFamily.Parse(layoutLabel.Fontname),
+          FontSize = int.Parse(layoutLabel.Size),
+          FontColor = brush
+        });
+      }
       Points = new ObservableCollection<YardObject>(Points.Reverse());
       MqttHandler.Setup();
     }
 
     private void MqttHandler_OnMqttMessage(string systemName, string payload)
     {
-      var p = Points.FirstOrDefault(yo => yo.SystemName == systemName) as Turnout;
-      if (p == null)
+      if (Points.FirstOrDefault(yo => yo.SystemName == systemName) is Turnout p)
+      {
+        TurnoutState result = TurnoutState.UNKNOWN;
+        Enum.TryParse<TurnoutState>(payload, out result);
+        p.State = result;
+      }
+      else
       {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
           LogItems.Add($"Unknown yard object: {systemName}");
         });
-        return;
       }
-      TurnoutState result = TurnoutState.UNKNOWN;
-      Enum.TryParse<TurnoutState>(payload, out result);
-      p.State = result;
     }
   }
 }

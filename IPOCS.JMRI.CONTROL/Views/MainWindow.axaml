@@ -5,7 +5,7 @@
         xmlns:paz="clr-namespace:Avalonia.Controls.PanAndZoom;assembly=Avalonia.Controls.PanAndZoom"
         xmlns:vm="clr-namespace:IPOCS.JMRI.CONTROL.ViewModels;assembly=IPOCS.JMRI.CONTROL"
         xmlns:models="clr-namespace:IPOCS.JMRI.CONTROL.Models;assembly=IPOCS.JMRI.CONTROL"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="450"
         x:Class="IPOCS.JMRI.CONTROL.Views.MainWindow"
         Icon="/Assets/avalonia-logo.ico"
         Title="IPOCS.JMRI.CONTROL">
@@ -17,35 +17,28 @@
   </Window.Styles>
   <Grid RowDefinitions="* 200">
     <paz:ZoomBorder Name="zoomBorder" Stretch="None" ZoomSpeed="1.2"
-                  Background="SlateBlue" ClipToBounds="True" Focusable="True"
-                  VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                  Background="Black" ClipToBounds="True" Focusable="True"
                   Grid.Row="0">
-      <ItemsControl Items="{Binding Points}" MinWidth="800" MinHeight="450">
+      <ItemsControl Items="{Binding Points}" MinWidth="1200" MinHeight="200">
         <ItemsControl.DataTemplates>
-          <DataTemplate DataType="{x:Type models:Point}">
-            <Canvas Height="4" Width="4" HorizontalAlignment="Center">
-              <Ellipse Margin="-2,-2,0,0" Canvas.Top="{Binding Y}" Canvas.Left="{Binding X}" Height="4" Width="4" Stroke="Black" StrokeThickness="1" Fill="Black" />
-            </Canvas>
-          </DataTemplate>
-          <DataTemplate DataType="{x:Type models:Line}">
-            <Canvas Height="20" Width="20" HorizontalAlignment="Center">
-              <Line StartPoint="{Binding StartPoint}" EndPoint="{Binding EndPoint}" Fill="Black" Stroke="Black" StrokeThickness="1" />
-            </Canvas>
-          </DataTemplate>
           <DataTemplate DataType="{x:Type models:Turnout}">
             <Canvas>
               <Canvas.ContextMenu>
-                <ContextMenu>
+                <ContextMenu IsEnabled="{Binding HasSystemName}">
                   <MenuItem Header="{Binding Ident}" IsEnabled="False" />
                   <Separator />
                   <MenuItem Header="Thrown" Command="{Binding ThrowTurnout}" CommandParameter="THROWN" />
                   <MenuItem Header="Closed" Command="{Binding ThrowTurnout}" CommandParameter="CLOSED" />
                 </ContextMenu>
               </Canvas.ContextMenu>
-              <Ellipse Margin="-2,-2,0,0" Fill="Black" Stroke="Black" StrokeThickness="1" Canvas.Top="{Binding PointA.Y}" Canvas.Left="{Binding PointA.X}" Height="4" Width="4" />
+              <TextBlock IsVisible="{Binding HasSystemName}" Text="{Binding UserName}" Canvas.Top="{Binding Y}" Canvas.Left="{Binding X}" /> 
+              <Ellipse IsVisible="{Binding HasSystemName}" Margin="-5,-5,0,0" Fill="Black" Stroke="Black" StrokeThickness="2" Canvas.Top="{Binding PointA.Y}" Canvas.Left="{Binding PointA.X}" Height="10" Width="10" />
+              <!--
+              <Ellipse ZIndex="2" Margin="-2,-2,0,0" Fill="Black" Stroke="Black" StrokeThickness="1" Canvas.Top="{Binding PointA.Y}" Canvas.Left="{Binding PointA.X}" Height="4" Width="4" />
               <Ellipse Margin="-2,-2,0,0" Fill="Black" Stroke="Black" StrokeThickness="1" Canvas.Top="{Binding PointB.Y}" Canvas.Left="{Binding PointB.X}" Height="4" Width="4" />
               <Ellipse Margin="-2,-2,0,0" Fill="Black" Stroke="Black" StrokeThickness="1" Canvas.Top="{Binding PointC.Y}" Canvas.Left="{Binding PointC.X}" Height="4" Width="4" />
               <Ellipse Margin="-2,-2,0,0" Fill="Black" Stroke="Black" StrokeThickness="1" Canvas.Top="{Binding PointD.Y}" Canvas.Left="{Binding PointD.X}" Height="4" Width="4" />
+              -->
               <ItemsControl Items="{Binding Lines}" MinWidth="2000" MinHeight="2000">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -55,11 +48,34 @@
               </ItemsControl>
             </Canvas>
           </DataTemplate>
+          <DataTemplate DataType="{x:Type models:Point}">
+            <Canvas Height="4" Width="4" HorizontalAlignment="Center">
+              <!--
+              <Ellipse Margin="-2,-2,0,0" Canvas.Top="{Binding Y}" Canvas.Left="{Binding X}" Height="4" Width="4" Stroke="Black" StrokeThickness="1" Fill="Black" />
+              -->
+            </Canvas>
+          </DataTemplate>
+          <DataTemplate DataType="{x:Type models:TurnTable}">
+            <Canvas Height="4" Width="4" HorizontalAlignment="Center">
+              <Ellipse Margin="{Binding Margin}" Canvas.Top="{Binding Y}" Canvas.Left="{Binding X}" Height="{Binding Height}" Width="{Binding Width}" Stroke="Black" StrokeThickness="1" Fill="WhiteSmoke"  />
+            </Canvas>
+          </DataTemplate>
+          <DataTemplate DataType="{x:Type models:Line}">
+            <Canvas ZIndex="0" Height="20" Width="20" HorizontalAlignment="Center">
+              <TextBlock Text="{Binding Ident}" Canvas.Top="{Binding StartPoint.Y}" Canvas.Left="{Binding StartPoint.X}" />
+              <Line StartPoint="{Binding StartPoint}" EndPoint="{Binding EndPoint}" Fill="Black" Stroke="Black" StrokeThickness="1" />
+            </Canvas>
+          </DataTemplate>
+          <DataTemplate DataType="{x:Type models:PositionLabel}">
+            <Canvas ZIndex="0" Height="20" Width="20" HorizontalAlignment="Center">
+              <TextBlock Canvas.Left="{Binding X}" Canvas.Top="{Binding Y}" Text="{Binding Text}" FontFamily="{Binding FontFamily}" FontSize="{Binding FontSize}" Foreground="{Binding FontColor}" />
+            </Canvas>
+          </DataTemplate>
         </ItemsControl.DataTemplates>
 
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <Canvas Background="AliceBlue" />
+            <Canvas Background="WhiteSmoke"/>
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
 
