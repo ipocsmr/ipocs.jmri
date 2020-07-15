@@ -70,6 +70,7 @@ namespace IPOCS.JMRI
         if (translator.GetPacketFromPayload(payload) is Packet pkt)
         {
           msg.packets.Add(pkt);
+          IpocsHandler.Send(msg.RXID_OBJECT, msg);
         }
         else
         {
@@ -80,8 +81,6 @@ namespace IPOCS.JMRI
       {
         Log.Warning("IPOCS: Topic does not have a translator {@topic}", topic);
       }
-
-      IpocsHandler.Send(msg.RXID_OBJECT, msg);
     }
   }
 }
