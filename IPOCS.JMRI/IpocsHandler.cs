@@ -2,6 +2,7 @@
 using IPOCS_Programmer.ObjectTypes;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +10,7 @@ namespace IPOCS.JMRI
 {
   public class IpocsHandler
   {
-    public static Dictionary<int, Client> Clients { get; } = new Dictionary<int, Client>();
+    public static ConcurrentDictionary<int, Client> Clients { get; } = new ConcurrentDictionary<int, Client>();
 
     private List<Concentrator> Concentrators { get; }
 
@@ -22,9 +23,9 @@ namespace IPOCS.JMRI
     {
       Log.Information("IPOCS: Unit {@UnitID} disconnected", client.UnitID);
       client.OnMessage -= OnClientMessage;
-      if (Clients.ContainsValue(client))
+      if (Clients.TryGetValue(client.UnitID, out var storedClient) && storedClient == client)
       {
-        Clients.Remove(client.UnitID);
+        Clients.Remove(client.UnitID, out _);
       }
     }
 
@@ -37,6 +38,12 @@ namespace IPOCS.JMRI
 
     protected void OnClientConnected(Client client)
     {
+      var concentrator = Concentrators.FirstOrDefault((c) => c.UnitID == client.UnitID);
+      if (concentrator == null)
+      {
+        Log.Warning("Unknown IPOCS unit ({@UnitID}) tried to connect. Rejecting connection...", client.UnitID);
+        client.Disconnect();
+      }
       if (Clients.ContainsKey(client.UnitID))
       {
         Clients[client.UnitID].Disconnect();

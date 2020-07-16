@@ -6,6 +6,7 @@ using MQTTnet.Client.Options;
 using MQTTnet.Client.Receiving;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +20,7 @@ namespace IPOCS.JMRI
     private IMqttClient Broker { get; }
     private string ClientID { get; }
 
-    private Dictionary<string, string> LastRecv { get; } = new Dictionary<string, string>();
+    private ConcurrentDictionary<string, string> LastRecv { get; } = new ConcurrentDictionary<string, string>();
 
     public JmriHandler(Options options)
     {
