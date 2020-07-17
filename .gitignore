@@ -22,3 +22,4 @@ msbuild.wrn
 /.vs
 
 appsettings.*.json
+*.7z
