@@ -7,10 +7,12 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="0.10.0-preview1" />
-    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="3.0.0-preview1" />
-    <PackageReference Include="Avalonia.Desktop" Version="0.10.0-preview1" />
-    <PackageReference Include="Avalonia.ReactiveUI" Version="0.10.0-preview1" />
+    <PackageReference Include="Avalonia" Version="0.10.0-preview2" />
+    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="3.0.0-preview2" />
+    <PackageReference Include="Avalonia.Desktop" Version="0.10.0-preview2" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="0.10.0-preview2" />
+    <PackageReference Include="Avalonia.Skia" Version="0.10.0-preview2" />
+    <PackageReference Include="Avalonia.X11" Version="0.10.0-preview2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="3.1.6" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.6" />
     <PackageReference Include="MQTTnet" Version="3.0.11" />
